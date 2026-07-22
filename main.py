@@ -2,43 +2,73 @@ from langchain_core.messages import SystemMessage
 import requests
 from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
+from simpleeval import simple_eval
 from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
+import re
 
 load_dotenv()
 
 @tool
 def calculator(expression: str) -> str:
     """
-    Calculate a basic mathematical expression.
-
-    Args:
-        expression: A mathematical expression such as
-                    '10 + 5' or '20 * 4'.
-
-    Returns:
-        The calculated result.
+    Safely calculate a mathematical expression.
     """
 
+    expression = expression.strip()
+
+    if not expression:
+        return "Error: Expression cannot be empty."
+
+    if len(expression) > 100:
+        return "Error: Expression is too long."
+
+    # Allow only numbers, operators, decimal points,
+    # parentheses, spaces, and basic math symbols
+    if not re.fullmatch(
+        r"[0-9+\-*/().%\s]+",
+        expression
+    ):
+        return (
+            "Error: Invalid expression. "
+            "Only basic mathematical operations are allowed."
+        )
+
     try:
-        result = eval(expression)
+        result = simple_eval(expression)
+
         return str(result)
 
-    except Exception:
-        return "Unable to calculate the expression."
+    except ZeroDivisionError:
+        return "Error: Cannot divide by zero."
 
+    except Exception:
+        return (
+            "Error: Invalid mathematical expression."
+        )
 
 @tool
 def get_weather(city: str) -> str:
     """
     Get the current weather for a city.
-
-    Args:
-        city: Name of the city.
-
-    Returns:
-        Current temperature and wind speed.
     """
+
+    city = city.strip()
+
+    if not city:
+        return "Error: City name cannot be empty."
+
+    if len(city) > 100:
+        return "Error: City name is too long."
+
+    if not re.fullmatch(
+         r"[A-Za-zÀ-ÿ\s.'-]+",
+        city
+    ):
+        return (
+            "Error: Invalid city name. "
+            "Please enter a valid city."
+        )
 
     try:
         geocoding_url = (
@@ -165,21 +195,15 @@ print()
 while True:
     user_input = input("You: ").strip()
 
-    if user_input.lower() == "/exit":
+    if not user_input:
+        print("Assistant: Please enter a message.")
+        continue
 
-        print("\nAssistant: Goodbye!")
-
-        break
-
-    if user_input.lower() == "/reset":
-
-        conversation_history = []
-
+    if len(user_input) > 2000:
         print(
-            "\nAssistant: "
-            "Conversation history has been reset.\n"
+            "Assistant: Your message is too long. "
+            "Please keep it under 2000 characters."
         )
-
         continue
 
     if not user_input:
@@ -220,7 +244,7 @@ while True:
                 # )
 
                 # print(
-                #     f"[Tool Arguments: {tool_args}]"
+                #     f"[Tool Arguments: {tool_args}]"  
                 # )
 
 
