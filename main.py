@@ -23,8 +23,6 @@ def calculator(expression: str) -> str:
     if len(expression) > 100:
         return "Error: Expression is too long."
 
-    # Allow only numbers, operators, decimal points,
-    # parentheses, spaces, and basic math symbols
     if not re.fullmatch(
         r"[0-9+\-*/().%\s]+",
         expression
@@ -58,7 +56,7 @@ def get_weather(city: str) -> str:
     if not city:
         return "Error: City name cannot be empty."
 
-    if len(city) > 100:
+    if len(city) > 20:
         return "Error: City name is too long."
 
     if not re.fullmatch(
