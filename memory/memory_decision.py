@@ -20,6 +20,8 @@ llm = ChatOpenAI(
     model="gpt-4o-mini",
     temperature=0
 )
+
+
 memory_llm = llm.with_structured_output(MemoryDecision)
 
 
