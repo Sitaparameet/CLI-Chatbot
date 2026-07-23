@@ -13,7 +13,6 @@ from tools.weather import get_weather
 
 load_dotenv()
 
-# Initialize LLM and Agent Tools
 llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
 tools = [calculator, get_weather]
 checkpointer = MemorySaver()
@@ -41,7 +40,6 @@ def dynamic_prompt(state: dict) -> list:
     return [system_message] + state["messages"]
 
 
-# Build LangGraph React Agent
 agent = create_react_agent(
     model=llm,
     tools=tools,
@@ -104,19 +102,15 @@ def main():
                 )
                 continue
 
-            # Check if user message contains durable memory to save
             memory_decision = should_remember(user_input)
             if memory_decision.should_remember and memory_decision.memory:
                 save_memory(memory_decision.memory)
                 print(f"[Memory Saved: {memory_decision.memory}]")
 
-            # Invoke LangGraph agent
             response = agent.invoke(
                 {"messages": [HumanMessage(content=user_input)]},
                 config=config,
             )
-
-            # Retrieve final message content
             final_content = response["messages"][-1].content
             print(f"\nAssistant: {final_content}\n")
 
