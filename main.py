@@ -19,7 +19,6 @@ checkpointer = MemorySaver()
 
 
 def dynamic_prompt(state: dict) -> list:
-    """Build dynamic prompt with system instructions and current memories."""
     memories = all_memories()
     memory_text = ""
     if memories:
@@ -39,31 +38,82 @@ def dynamic_prompt(state: dict) -> list:
 
     return [system_message] + state["messages"]
 
+def show_help():
+        print(
+        """
+CLI Chatbot
+
+Available Commands:
+/reset          - Clear conversation history
+/memories       - View saved memories
+/clear-memories - Clear saved memories
+/exit           - Exit chatbot
+
+You can ask questions like:
+ - What is 25 * 4?
+- What is the weather in Ahmedabad?
+"""
+    )
+
 
 agent = create_react_agent(
     model=llm,
     tools=tools,
-    checkpointer=checkpointer,
+    checkpointer=checkpointer, 
     prompt=dynamic_prompt,
 )
 
 
+class LoopState:
+    def __init__(self):
+        self.thread_id = 1
+        self.running = True
+
+    @property
+    def config(self) -> dict:
+        return {"configurable": {"thread_id": str(self.thread_id)}}
+
+
+def handle_exit(state: LoopState):
+    print("\nAssistant: Goodbye!")
+    state.running = False
+
+
+def handle_reset(state: LoopState):
+    state.thread_id += 1
+    print("\nAssistant: Conversation history has been reset.\n")
+
+
+def handle_memories(state: LoopState):
+    display_memories()
+
+
+def handle_clear_memories(state: LoopState):
+    clear_all_memories()
+    state.thread_id += 1
+    print("\nAssistant: All memories and conversation history have been cleared.\n")
+
+
+COMMAND_HANDLERS = {
+    "/exit": handle_exit,
+    "/reset": handle_reset,
+    "/memories": handle_memories,
+    "/clear-memories": handle_clear_memories,
+}
+
+
+def process_memory_save(user_input: str):
+    memory_decision = should_remember(user_input)
+    if memory_decision.should_remember and memory_decision.memory:
+        save_memory(memory_decision.memory)
+        print(f"[Memory Saved: {memory_decision.memory}]")
+
+
 def main():
-    print("CLI Chatbot (Powered by LangGraph)")
-    print("\nAvailable Commands:")
-    print("/reset          - Clear conversation history")
-    print("/memories       - View saved memories")
-    print("/clear-memories - Clear saved memories")
-    print("/exit           - Exit chatbot")
-    print("\nYou can ask questions like:")
-    print("- What is 25 * 4?")
-    print("- What is the weather in Ahmedabad?")
-    print()
+    show_help()
+    state = LoopState()
 
-    thread_id = 1
-    config = {"configurable": {"thread_id": str(thread_id)}}
-
-    while True:
+    while state.running:
         try:
             user_input = input("You: ").strip()
 
@@ -72,28 +122,9 @@ def main():
                 continue
 
             cmd = user_input.lower()
-
-            if cmd == "/exit":
-                print("\nAssistant: Goodbye!")
-                break
-
-            if cmd == "/reset":
-                thread_id += 1
-                config = {"configurable": {"thread_id": str(thread_id)}}
-                print("\nAssistant: Conversation history has been reset.\n")
-                continue
-
-            if cmd == "/memories":
-                display_memories()
-                continue
-
-            if cmd == "/clear-memories":
-                clear_all_memories()
-                thread_id += 1
-                config = {"configurable": {"thread_id": str(thread_id)}}
-                print(
-                    "\nAssistant: All memories and conversation history have been cleared.\n"
-                )
+            handler = COMMAND_HANDLERS.get(cmd)
+            if handler:
+                handler(state)
                 continue
 
             if len(user_input) > 2000:
@@ -102,14 +133,11 @@ def main():
                 )
                 continue
 
-            memory_decision = should_remember(user_input)
-            if memory_decision.should_remember and memory_decision.memory:
-                save_memory(memory_decision.memory)
-                print(f"[Memory Saved: {memory_decision.memory}]")
+            process_memory_save(user_input)
 
             response = agent.invoke(
                 {"messages": [HumanMessage(content=user_input)]},
-                config=config,
+                config=state.config,
             )
             final_content = response["messages"][-1].content
             print(f"\nAssistant: {final_content}\n")
