@@ -292,6 +292,23 @@ This project demonstrates:
 
 ---
 
+## Memory-Write Decision Logic
+
+The chatbot uses a dedicated memory-decision component to determine whether information from the user's message should be stored as persistent memory.
+   
+When a user sends a message, the message is passed to the memory-decision logic. The system uses structured output to return a `MemoryDecision` object containing whether the information should be remembered and, if applicable, a concise memory statement.
+
+The decision follows the principle that only useful, user-specific, and potentially reusable information should be stored. For example, personal facts and long-term preferences are considered suitable for memory. A statement such as "My name is Meet" may be stored as "User's name is Meet." Similarly, "I love to play cricket" may be stored as "User loves to play cricket."
+
+On the other hand, temporary questions or general conversation should not be stored. For example, "What is 25 multiplied by 4?" and "Hello, how are you?" do not contain information that is useful for future personalization, so the memory decision returns `should_remember = False`.
+
+If the decision is positive and a memory value is returned, the memory is saved using the memory storage component. Saved memories persist across chatbot sessions, allowing the chatbot to recall previously stored user facts after the application is restarted.
+
+The system also provides `/memories` to view saved memories and `/clear-memories` to delete saved memories. Conversation history can be reset separately using `/reset`.
+
+This approach separates the decision of **what should be remembered** from the actual **storage of memories**, making the memory system easier to maintain and extend.
+
+
 ## 👨‍💻 Author
 
 **Meet**
