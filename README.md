@@ -1,36 +1,44 @@
-# CLI Chatbot Using OpenAI API
+# CLI Chatbot Using OpenAI API & LangChain Tools
 
 ## 📌 Project Description
 
-This project is a command-line interface (CLI) chatbot built using **Python, LangChain, and OpenAI API**.
+This project is a feature-rich Command-Line Interface (CLI) AI agent built using **Python, LangChain, LangGraph, and the OpenAI API**.
 
-The chatbot can maintain conversation history during a single session and supports basic commands to reset the conversation or exit the chatbot.
+Equipped with **Tool Calling** capabilities and an **Automated Persistent Memory System**, the chatbot can interactively answer questions, perform real-time web searches, fetch weather conditions, evaluate math calculations, read/write local files, and remember user details across sessions.
 
-The project was developed as part of an LLM and Prompt Engineering task.
+Developed as part of an LLM and Prompt Engineering task.
 
 ---
 
 ## ✨ Features
 
-* 🤖 Chat with an OpenAI Large Language Model (LLM)
-* 🧠 Maintains conversation history during the current session
-* 🔄 `/reset` command to clear conversation history
-* 🚪 `/exit` command to exit the chatbot session
-* 🔐 API key stored securely using environment variables
-* ⚠️ Basic API error handling
-* 🐍 Python 3.12 environment
-* 🔗 Built using LangChain
+* 🤖 **LangGraph AI Agent (`gpt-4o-mini`)**: Powered by LangChain and LangGraph with `MemorySaver` checkpointer for conversation session history.
+* 🛠️ **Custom Tool Integration**:
+  * 🌐 `web_search`: Real-time web search using Tavily API for current news, recent events, and external facts.
+  * 🌤️ `get_weather`: Live weather updates for any city using OpenWeatherMap API.
+  * 🧮 `calculator`: Safe mathematical expression solver using Python `ast`.
+  * 📁 `file_io`: Read and write text files directly within the project environment.
+* 🧠 **Persistent User Memory**: Automatically extracts personal user facts using OpenAI Structured Output (`MemoryDecision` model) and persists them in `data/memory.json` across sessions.
+* 🪵 **Tool Call Execution Logging**: Decorator-based logging (`tool_logger.py`) that records tool calls, inputs, outputs, and timestamps in `logs/tool_calls.log`.
+* 📅 **Dynamic Context & System Prompt**: Automatically injects today's date and stored user memories into the system prompt.
+* 💬 **Interactive CLI Commands**:
+  * `/reset`: Start a fresh conversation session thread.
+  * `/memories`: View all saved user memories.
+  * `/clear-memories`: Delete all stored memories and reset conversation.
+  * `/exit`: Safely exit the chatbot.
+* 🔐 **Secure Key Management**: Environment variables managed via `.env` with character length limits and error fallback handling.
 
 ---
 
 ## 🛠️ Technologies Used
 
-* Python 3.12
-* LangChain
-* LangChain OpenAI
-* OpenAI API
-* python-dotenv
-* uv
+* **Python 3.12**
+* **LangChain & LangGraph** (`create_agent`, `MemorySaver`)
+* **OpenAI API** (`gpt-4o-mini`, Structured Outputs)
+* **Tavily API** (`tavily-python`) for web search
+* **OpenWeatherMap API** for weather data
+* **Pydantic** for structured memory models
+* **python-dotenv** & **uv** package manager
 
 ---
 
@@ -39,12 +47,25 @@ The project was developed as part of an LLM and Prompt Engineering task.
 ```text
 CLI Chatbot/
 │
-├── .venv/                 # Python virtual environment (not uploaded)
-├── .env                   # API key (not uploaded)
-├── .gitignore             # Files excluded from Git
-├── .python-version        # Python version used by the project
-├── main.py                # Main chatbot application
-├── pyproject.toml         # Project dependencies and configuration
+├── data/                  # Persistent storage directory
+│   └── memory.json        # Saved persistent user memories
+├── logs/                  # Application logs
+│   └── tool_calls.log     # Detailed logs of tool executions
+├── memory/                # Memory decision and storage modules
+│   ├── cli_memory.py      # CLI handlers for memory commands
+│   ├── memory_decision.py # Structured output memory classifier
+│   └── memory_store.py    # Memory persistence functions
+├── tools/                 # Agent custom tools
+│   ├── calculator.py      # Safe AST mathematical calculator tool
+│   ├── file_io.py         # File read/write tool
+│   ├── tool_logger.py     # Execution logger decorator for tools
+│   ├── weather.py         # OpenWeatherMap API weather tool
+│   └── web_search.py      # Tavily web search tool
+├── .env                   # API keys and environment configuration
+├── .gitignore             # Git exclusions
+├── main.py                # CLI Chatbot entry point & agent loop
+├── structured_output.py   # Memory decision Pydantic models
+├── pyproject.toml         # Dependencies and project configuration
 ├── uv.lock                # Locked dependency versions
 └── README.md              # Project documentation
 ```
@@ -56,8 +77,10 @@ CLI Chatbot/
 Before running the project, make sure you have:
 
 * Python 3.12
-* uv package manager
-* An OpenAI API key
+* `uv` package manager installed
+* OpenAI API Key (`OPENAI_API_KEY`)
+* Tavily API Key (`TAVILY_API_KEY`) for web search
+* OpenWeatherMap API Key (`OPENWEATHER_API_KEY`, optional for weather tool)
 
 ---
 
@@ -67,247 +90,173 @@ Before running the project, make sure you have:
 
 ```bash
 git clone <YOUR_GITHUB_REPOSITORY_URL>
-```
-
-Navigate to the project directory:
-
-```bash
 cd CLI-Chatbot
 ```
 
 ---
 
-### 2. Create the Virtual Environment
-
-The project uses Python 3.12.
+### 2. Create and Activate Virtual Environment
 
 ```bash
 uv venv
 ```
 
-Activate the environment on Windows:
+Activate on Windows:
 
 ```powershell
 .venv\Scripts\activate
+```
+
+Activate on macOS / Linux:
+
+```bash
+source .venv/bin/activate
 ```
 
 ---
 
 ### 3. Install Dependencies
 
-Install the project dependencies using:
+Install dependencies using `uv`:
 
 ```bash
 uv sync
 ```
 
-Or install the required packages manually:
+Or manually install:
 
 ```bash
-uv add langchain langchain-openai python-dotenv
+uv add langchain langchain-openai langgraph tavily-python python-dotenv requests pydantic
 ```
 
 ---
 
-### 4. Configure the OpenAI API Key
+### 4. Configure API Keys
 
-Create a file named:
-
-```text
-.env
-```
-
-Add your OpenAI API key:
+Create a `.env` file in the root directory:
 
 ```text
 OPENAI_API_KEY=your_openai_api_key_here
+TAVILY_API_KEY=your_tavily_api_key_here
+OPENWEATHER_API_KEY=your_openweather_api_key_here
 ```
 
-Replace `your_openai_api_key_here` with your actual API key.
-
-⚠️ **Important:** Never upload your `.env` file or expose your API key publicly.
+⚠️ **Important:** Never commit your `.env` file to version control.
 
 ---
 
 ## ▶️ Running the Chatbot
 
-Run the chatbot using:
+Start the chatbot CLI:
 
 ```bash
 uv run main.py
 ```
 
-The chatbot will start in the command line.
-
-Example:
+Sample CLI Startup Display:
 
 ```text
 ==================================================
-        LangChain CLI Chatbot
+        CLI Chatbot
 ==================================================
 
-Commands:
-/reset - Clear conversation history
-/exit  - Exit the chatbot
+Available Commands:
+/reset          - Clear conversation history
+/memories       - View saved memories
+/clear-memories - Clear saved memories
+/exit           - Exit chatbot
 
-You:
+You can ask questions like:
+- What is 25 * 4?
+- What is the weather in Ahmedabad?
+- What is the latest news about AI?
+- Create a file named notes.txt with hello world
 ```
 
 ---
 
-## 💬 Example Conversation
+## 🧰 Available Tools & Capabilities
+
+The agent automatically invokes the appropriate tool based on user intent:
+
+| Tool | Functionality | Example Prompt |
+| --- | --- | --- |
+| 🌐 `web_search` | Real-time web search via Tavily API for current news, facts, and updates | *"What is the latest news about space exploration?"* |
+| 🌤️ `get_weather` | Fetches live weather report (temp, humidity, description) for a city | *"What's the weather in Tokyo right now?"* |
+| 🧮 `calculator` | Evaluates math expressions (`+`, `-`, `*`, `/`, `**`, `%`) safely | *"Calculate (350 * 12) / 4"* |
+| 📁 `file_io` | Reads from or writes to local text files inside workspace | *"Write 'Project complete' into status.txt"* |
+
+All tool calls are logged with execution metrics in `logs/tool_calls.log`.
+
+---
+
+## 📌 Interactive CLI Commands
+
+| Command | Description |
+| --- | --- |
+| `/reset` | Resets current conversation thread history (starts a new thread ID) |
+| `/memories` | Displays all saved persistent user memories |
+| `/clear-memories` | Deletes all saved user memories and resets conversation |
+| `/exit` | Exits the chatbot session |
+
+---
+
+## 🧠 Persistent User Memory System
+
+The chatbot incorporates a **Memory-Write Decision Logic** using OpenAI Structured Outputs (`gpt-4o-mini` with Pydantic):
+
+1. **Extraction**: When you send a message (e.g., *"My name is Meet and I love playing cricket"*), `should_remember()` analyzes the message.
+2. **Decision**: Useful, personal facts generate a `MemoryDecision(should_remember=True, memory="User's name is Meet. User loves playing cricket.")`. Temporary queries (*"What is 2 + 2?"*) are ignored.
+3. **Storage**: Approved memories are persisted in `data/memory.json`.
+4. **Recall**: On future turns and session restarts, stored memories are automatically formatted into the agent's System Prompt.
+
+---
+
+## 💬 Example Usage Scenarios
+
+### Tool Invocation Example (Web Search & Calculator)
 
 ```text
-You: My name is Meet.
+You: What is the current news about space exploration?
+Assistant: NASA recently announced progress on the Artemis mission...
 
-Assistant: Nice to meet you, Meet!
-
-You: What is my name?
-
-Assistant: Your name is Meet.
+You: What is 125 * 8?
+Assistant: 125 * 8 = 1000
 ```
 
-The chatbot remembers previous messages during the current session.
-
----
-
-## 🔄 Reset Conversation
-
-To clear the conversation history, enter:
+### Memory Retention Across Sessions
 
 ```text
-/reset
-```
+Session 1:
+You: I live in Toronto and work as a software engineer.
+[Memory Saved: User lives in Toronto. User works as a software engineer.]
 
-Example:
-
-```text
-You: /reset
-
-Assistant: Conversation history has been reset.
-```
-
-After resetting, previous conversation information is removed.
-
----
-
-## 🚪 Exit the Chatbot
-
-To exit the current chatbot session, enter:
-
-```text
-/exit
-```
-
-Example:
-
-```text
-You: /exit
-
-Assistant: Goodbye!
-```
-
-The chatbot program will terminate, but the terminal itself will remain open.
-
----
-
-## 🧠 Conversation History
-
-The chatbot maintains conversation history using LangChain message objects.
-
-The conversation follows this flow:
-
-```text
-User Message
-      ↓
-Add to Conversation History
-      ↓
-Send Conversation History to LLM
-      ↓
-Receive AI Response
-      ↓
-Add AI Response to History
-      ↓
-Display Response
-      ↓
-Wait for Next User Message
-```
-
-This allows the chatbot to remember previous messages during a single session.
-
----
-
-## ⚠️ Error Handling
-
-The chatbot includes basic error handling for API failures.
-
-If an error occurs while communicating with the OpenAI API, the chatbot displays a fallback message and allows the user to try again.
-
-Example:
-
-```text
-Assistant: Sorry, I couldn't process your request. Please try again.
+Session 2 (after restart):
+You: Where do I live and what is my job?
+Assistant: You live in Toronto and work as a software engineer!
 ```
 
 ---
 
-## 🔐 Security
+## ⚠️ Error Handling & Security
 
-The OpenAI API key is stored in an environment variable using a `.env` file.
-
-The `.env` file should be included in `.gitignore`:
-
-```text
-.env
-.venv/
-__pycache__/
-*.pyc
-```
-
-This prevents the API key from being accidentally committed to GitHub.
+* **API Keys**: Stored safely in environment variables using `.env`.
+* **Input Limits**: Messages over 2000 characters are rejected to prevent context bloat.
+* **Tool Safety**: Math calculator uses restricted AST parsing rather than unsafe `eval()`.
+* **Robust Fallbacks**: Catches API timeouts, network failures, and tool errors gracefully.
 
 ---
 
-## 📌 Available Commands
+## 🎯 Learning Objectives & Highlights
 
-| Command  | Description                             |
-| -------- | --------------------------------------- |
-| `/reset` | Clears the current conversation history |
-| `/exit`  | Exits the chatbot session               |
-
----
-
-## 🎯 Learning Objectives
-
-This project demonstrates:
-
-* Using an LLM API with Python
-* Using LangChain with OpenAI
-* Managing conversation history
-* Working with environment variables
-* Building a command-line chatbot
-* Handling API errors
-* Using `uv` for Python project and dependency management
-* Managing a project using Git and GitHub
+* Building an autonomous **LangGraph Agent** with tool calling capabilities.
+* Integrating custom tools (`web_search`, `get_weather`, `calculator`, `file_io`).
+* Implementing **Structured Output** for automated memory decision classification.
+* Creating persistent memory management systems (`data/memory.json`).
+* Decorator pattern for tool execution logging (`logs/tool_calls.log`).
+* Clean CLI interface with session state management using `uv`.
 
 ---
-
-## Memory-Write Decision Logic
-
-The chatbot uses a dedicated memory-decision component to determine whether information from the user's message should be stored as persistent memory.
-   
-When a user sends a message, the message is passed to the memory-decision logic. The system uses structured output to return a `MemoryDecision` object containing whether the information should be remembered and, if applicable, a concise memory statement.
-
-The decision follows the principle that only useful, user-specific, and potentially reusable information should be stored. For example, personal facts and long-term preferences are considered suitable for memory. A statement such as "My name is Meet" may be stored as "User's name is Meet." Similarly, "I love to play cricket" may be stored as "User loves to play cricket."
-
-On the other hand, temporary questions or general conversation should not be stored. For example, "What is 25 multiplied by 4?" and "Hello, how are you?" do not contain information that is useful for future personalization, so the memory decision returns `should_remember = False`.
-
-If the decision is positive and a memory value is returned, the memory is saved using the memory storage component. Saved memories persist across chatbot sessions, allowing the chatbot to recall previously stored user facts after the application is restarted.
-
-The system also provides `/memories` to view saved memories and `/clear-memories` to delete saved memories. Conversation history can be reset separately using `/reset`.
-
-This approach separates the decision of **what should be remembered** from the actual **storage of memories**, making the memory system easier to maintain and extend.
-
 
 ## 👨‍💻 Author
 

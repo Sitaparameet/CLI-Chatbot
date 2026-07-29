@@ -1,8 +1,8 @@
+from datetime import datetime
 from dotenv import load_dotenv
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.messages import HumanMessage
 from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.memory import MemorySaver
-from langgraph.prebuilt import create_react_agent
 from langchain.agents import create_agent
 
 from memory.cli_memory import clear_all_memories, display_memories
@@ -10,36 +10,55 @@ from memory.memory_decision import should_remember
 from memory.memory_store import all_memories, save_memory
 from tools.calculator import calculator
 from tools.weather import get_weather
+from tools.file_io import file_io
+from tools.web_search import web_search
 
 load_dotenv()
 
 llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
-tools = [calculator, get_weather]
+tools = [calculator, get_weather, file_io, web_search]
 checkpointer = MemorySaver()
 
+SYSTEM_PROMPT = """You are a helpful CLI chatbot.
 
-def dynamic_prompt(state: dict) -> list:
+Always respond in plain text.
+Do not use LaTeX or mathematical formatting.
+
+WEB SEARCH RULES:
+You have access to a web_search tool.
+You MUST use web_search when the user asks for:
+- latest news
+- current events
+- recent developments
+- today's information
+- this week's information
+- detailed research
+- external facts
+- research reports
+
+When the user asks for current or latest information:
+1. Always call web_search before answering.
+2. Do not rely only on your internal knowledge.
+3. Do not assume an old year such as 2023.
+4. Use the current date when forming the search query.
+5. Base your answer on the search results.
+6. Mention relevant dates when appropriate."""
+
+
+def get_system_prompt() -> str:
+    current_date = datetime.now().strftime("%B %d, %Y")
+    date_context = f"\n\nCURRENT DATE: Today's date is {current_date}."
     memories = all_memories()
-    memory_text = ""
-    if memories:
-        memory_text = (
-            "\n\nRelevant information you remember about the user:\n"
-            + "\n".join(f"- {m}" for m in memories)
-        )
-
-    system_message = SystemMessage(
-        content=(
-            "You are a helpful CLI chatbot. "
-            "Always respond in plain text. "
-            "Do not use LaTeX or mathematical formatting."
-            f"{memory_text}"
-        )
+    memory_text = (
+        "\n\nRelevant information you remember about the user:\n"
+        + "\n".join(f"- {m}" for m in memories)
+        if memories else ""
     )
+    return SYSTEM_PROMPT + date_context + memory_text
 
-    return [system_message] + state["messages"]
 
 def show_help():
-        print(
+    print(
         """
 CLI Chatbot
 
@@ -50,17 +69,17 @@ Available Commands:
 /exit           - Exit chatbot
 
 You can ask questions like:
- - What is 25 * 4?
+- What is 25 * 4?
 - What is the weather in Ahmedabad?
 """
     )
 
 
-agent = create_react_agent(
+agent = create_agent(
     model=llm,
     tools=tools,
-    checkpointer=checkpointer, 
-    prompt=dynamic_prompt,
+    checkpointer=checkpointer,
+    system_prompt=get_system_prompt(),
 )
 
 
@@ -128,9 +147,7 @@ def main():
                 continue
 
             if len(user_input) > 2000:
-                print(
-                    "Assistant: Your message is too long. Please keep it under 2000 characters.\n"
-                )
+                print("Assistant: Your message is too long. Please keep it under 2000 characters.\n")
                 continue
 
             process_memory_save(user_input)

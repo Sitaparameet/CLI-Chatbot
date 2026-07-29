@@ -1,101 +1,54 @@
+import re
 import requests
 from langchain_core.tools import tool
-import re
+from tools.tool_logger import log_tool
+
 
 @tool
+@log_tool
 def get_weather(city: str) -> str:
-    """
-    Get the current weather for a city.
-    """
-
+    """Get the current weather for a city."""
     city = city.strip()
 
     if not city:
         return "Error: City name cannot be empty."
-
     if len(city) > 20:
         return "Error: City name is too long."
-
-    if not re.fullmatch(
-         r"[A-Za-zÀ-ÿ\s.'-]+",
-        city
-    ):
-        return (
-            "Error: Invalid city name. "
-            "Please enter a valid city."
-        )
+    if not re.fullmatch(r"[A-Za-zÀ-ÿ\s.'-]+", city):
+        return "Error: Invalid city name. Please enter a valid city."
 
     try:
-        geocoding_url = (
-            "https://geocoding-api.open-meteo.com/v1/search"
+        geo_res = requests.get(
+            "https://geocoding-api.open-meteo.com/v1/search",
+            params={"name": city, "count": 1, "language": "en", "format": "json"},
+            timeout=10,
         )
+        geo_res.raise_for_status()
+        locations = geo_res.json().get("results")
 
-        geocoding_response = requests.get(
-            geocoding_url,
-            params={
-                "name": city,
-                "count": 1,
-                "language": "en",
-                "format": "json"
-            },
-            timeout=10
-        )
-
-        geocoding_response.raise_for_status()
-
-        location_data = geocoding_response.json()
-
-        if "results" not in location_data:
+        if not locations:
             return f"Could not find the city: {city}"
 
-        location = location_data["results"][0]
-
-        latitude = location["latitude"]
-        longitude = location["longitude"]
-        city_name = location["name"]
-
-        weather_url = (
-            "https://api.open-meteo.com/v1/forecast"
-        )
-
-        weather_response = requests.get(
-            weather_url,
+        location = locations[0]
+        weather_res = requests.get(
+            "https://api.open-meteo.com/v1/forecast",
             params={
-                "latitude": latitude,
-                "longitude": longitude,
+                "latitude": location["latitude"],
+                "longitude": location["longitude"],
                 "current": "temperature_2m,wind_speed_10m",
-                "timezone": "auto"
+                "timezone": "auto",
             },
-            timeout=10
+            timeout=10,
         )
-
-        weather_response.raise_for_status()
-
-        weather_data = weather_response.json()
-
-        current = weather_data["current"]
-
-        temperature = current["temperature_2m"]
-        wind_speed = current["wind_speed_10m"]
-
+        weather_res.raise_for_status()
+        curr = weather_res.json()["current"]
 
         return (
-            f"Weather in {city_name}: "
-            f"Temperature: {temperature}°C, "
-            f"Wind Speed: {wind_speed} km/h"
+            f"Weather in {location['name']}: "
+            f"Temperature: {curr['temperature_2m']}°C, "
+            f"Wind Speed: {curr['wind_speed_10m']} km/h"
         )
-
-
     except requests.RequestException:
-
-        return (
-            "Unable to retrieve weather data right now."
-        )
-
-
+        return "Unable to retrieve weather data right now."
     except Exception:
-
-        return (
-            "An unexpected error occurred "
-            "while getting weather data."
-        )
+        return "An unexpected error occurred while getting weather data."
